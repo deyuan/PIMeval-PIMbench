@@ -49,7 +49,8 @@ enum PimCopyEnum {
 
 //! @brief  PIM datatypes
 enum PimDataType {
-  PIM_INT8 = 0,
+  PIM_BOOL = 0,
+  PIM_INT8,
   PIM_INT16,
   PIM_INT32,
   PIM_INT64,
@@ -142,6 +143,10 @@ PimStatus pimShiftElementsLeft(PimObjId src);
 PimStatus pimShiftBitsRight(PimObjId src, PimObjId dest, unsigned shiftAmount);
 PimStatus pimShiftBitsLeft(PimObjId src, PimObjId dest, unsigned shiftAmount);
 
+////////////////////////////////////////////////////////////////////////////////
+// Warning: Do not use below micro-ops level APIs for functional simulation   //
+////////////////////////////////////////////////////////////////////////////////
+
 // BitSIMD micro ops
 // Note: Below APIs are for low-level micro-ops programming but not for functional simulation
 // BitSIMD-V: Row-wide bit registers per subarray
@@ -155,6 +160,9 @@ enum PimRowReg {
   PIM_RREG_R5,
 };
 
+// Customized allocation with bitsPerElement less than the number of bits of dataType
+PimObjId pimAllocCustomized(PimAllocEnum allocType, uint64_t numElements, PimDataType dataType, unsigned bitsPerElement);
+PimObjId pimAllocAssociatedCustomized(PimObjId assocId, PimDataType dataType, unsigned bitsPerElement);
 // BitSIMD-V micro ops
 PimStatus pimOpReadRowToSa(PimObjId src, unsigned ofst);
 PimStatus pimOpWriteSaToRow(PimObjId src, unsigned ofst);

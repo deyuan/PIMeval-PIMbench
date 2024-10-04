@@ -102,6 +102,9 @@ pimResMgr::~pimResMgr()
 }
 
 //! @brief  Alloc a PIM object
+//!         Expect bitsPerElement to be smaller than or equal to the width of dataType
+//!         For V layout, allocate bitsPerElement rows
+//!         For H layout, pad element to the width of dataType
 PimObjId
 pimResMgr::pimAlloc(PimAllocEnum allocType, uint64_t numElements, unsigned bitsPerElement, PimDataType dataType)
 {
@@ -112,6 +115,12 @@ pimResMgr::pimAlloc(PimAllocEnum allocType, uint64_t numElements, unsigned bitsP
 
   if (numElements == 0 || bitsPerElement == 0) {
     std::printf("PIM-Error: Invalid parameters to allocate %llu elements of %u bits\n", numElements, bitsPerElement);
+    return -1;
+  }
+  unsigned bitsOfDataType = pimUtils::getNumBitsOfDataType(dataType);
+  if (bitsPerElement > bitsOfDataType) {
+    std::printf("PIM-Error: Cannot allocate %u bits which is greater than the width of %s data type\n",
+                bitsPerElement, pimUtils::pimDataTypeEnumToStr(dataType).c_str());
     return -1;
   }
 
@@ -141,8 +150,8 @@ pimResMgr::pimAlloc(PimAllocEnum allocType, uint64_t numElements, unsigned bitsP
   } else if (allocType == PIM_ALLOC_H || allocType == PIM_ALLOC_H1) {
     // allocate one region per core, with horizontal layout
     numRowsToAlloc = 1;
-    numRegions = (numElements * bitsPerElement - 1) / numCols + 1;
-    numColsToAllocLast = (numElements * bitsPerElement) % numCols;
+    numRegions = (numElements * bitsOfDataType - 1) / numCols + 1;
+    numColsToAllocLast = (numElements * bitsOfDataType) % numCols;
     if (numColsToAllocLast == 0) {
       numColsToAllocLast = numCols;
     }
@@ -156,7 +165,8 @@ pimResMgr::pimAlloc(PimAllocEnum allocType, uint64_t numElements, unsigned bitsP
 
   if (numRegions > numCores) {
     if (allocType == PIM_ALLOC_V1 || allocType == PIM_ALLOC_H1) {
-      std::printf("PIM-Error: Obj requires %llu regions among %u cores. Abort.\n", numRegions, numCores);
+      std::printf("PIM-Error: Obj requires %llu regions among %u cores. Abort since wrapping up is disabled.\n",
+                  numRegions, numCores);
       return -1;
     } else {
       #if defined(DEBUG)
@@ -165,7 +175,7 @@ pimResMgr::pimAlloc(PimAllocEnum allocType, uint64_t numElements, unsigned bitsP
     }
   }
 
-  // create new regions
+  // create regions
   bool success = true;
   for (unsigned i = 0; i < numCores; ++i) {
     m_coreUsage.at(i)->newAllocStart();
@@ -218,8 +228,11 @@ pimResMgr::pimAlloc(PimAllocEnum allocType, uint64_t numElements, unsigned bitsP
 }
 
 //! @brief  Alloc a PIM object assiciated to an existing object
-//!         For V layout, expect same number of elements, while bits per element may be different
-//!         For H layout, expect exact same number of elements and bits per elements
+//!         Expect bitsPerElement to be smaller than or equal to the width of dataType
+//!         Expect dataType to be narrower or equal to the width of associated dataType
+//!         For V layout, allocate bitsPerElement rows
+//!         For H layout, pad element to the width of assiciated dataType
+//!         Number of elements will be the same as the assiciated object
 PimObjId
 pimResMgr::pimAllocAssociated(unsigned bitsPerElement, PimObjId assocId, PimDataType dataType)
 {
@@ -233,6 +246,12 @@ pimResMgr::pimAllocAssociated(unsigned bitsPerElement, PimObjId assocId, PimData
     std::printf("PIM-Error: Invalid associated object ID %d for PIM allocation\n", assocId);
     return -1;
   }
+  unsigned bitsOfDataType = pimUtils::getNumBitsOfDataType(dataType);
+  if (bitsPerElement > bitsOfDataType) {
+    std::printf("PIM-Error: Cannot allocate %u bits which is greater than the width of %s data type\n",
+                bitsPerElement, pimUtils::pimDataTypeEnumToStr(dataType).c_str());
+    return -1;
+  }
 
   // get regions of the assoc obj
   unsigned numCores = m_device->getNumCores();
@@ -241,10 +260,13 @@ pimResMgr::pimAllocAssociated(unsigned bitsPerElement, PimObjId assocId, PimData
   // check if the request can be associated with ref
   PimAllocEnum allocType = assocObj.getAllocType();
   uint64_t numElements = assocObj.getNumElements();
+  PimDataType assocDataType = assocObj.getDataType();
+  unsigned bitsOfAssocDataType = pimUtils::getNumBitsOfDataType(assocDataType);
   if (allocType == PIM_ALLOC_H || allocType == PIM_ALLOC_H1) {
-    if (bitsPerElement != assocObj.getBitsPerElement()) {
-      std::printf("PIM-Error: Cannot allocate elements of %u bits associated with object ID %d with %u bits in H1 style\n",
-                  bitsPerElement, assocId, assocObj.getBitsPerElement());
+    if (bitsOfDataType > bitsOfAssocDataType) {
+      std::printf("PIM-Error: Cannot associate or pad a wider %s data type to %s data type\n",
+                  pimUtils::pimDataTypeEnumToStr(dataType).c_str(),
+                  pimUtils::pimDataTypeEnumToStr(assocDataType).c_str());
       return -1;
     }
   }
