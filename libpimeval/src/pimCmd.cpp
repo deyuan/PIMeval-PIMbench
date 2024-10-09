@@ -45,19 +45,19 @@ pimCmd::getName(PimCmdEnum cmdType, const std::string& suffix)
     { PimCmdEnum::EQ, "eq" },
     { PimCmdEnum::MIN, "min" },
     { PimCmdEnum::MAX, "max" },
-    { PimCmdEnum::ADD_SCALAR, "add_scaler" },
-    { PimCmdEnum::SUB_SCALAR, "sub_scaler" },
-    { PimCmdEnum::MUL_SCALAR, "mul_scaler" },
-    { PimCmdEnum::DIV_SCALAR, "div_scaler" },
-    { PimCmdEnum::AND_SCALAR, "and_scaler" },
-    { PimCmdEnum::OR_SCALAR, "or_scaler" },
-    { PimCmdEnum::XOR_SCALAR, "xor_scaler" },
-    { PimCmdEnum::XNOR_SCALAR, "xnor_scaler" },
-    { PimCmdEnum::GT_SCALAR, "gt_scaler" },
-    { PimCmdEnum::LT_SCALAR, "lt_scaler" },
-    { PimCmdEnum::EQ_SCALAR, "eq_scaler" },
-    { PimCmdEnum::MIN_SCALAR, "min_scaler" },
-    { PimCmdEnum::MAX_SCALAR, "max_scaler" },
+    { PimCmdEnum::ADD_SCALAR, "add_scalar" },
+    { PimCmdEnum::SUB_SCALAR, "sub_scalar" },
+    { PimCmdEnum::MUL_SCALAR, "mul_scalar" },
+    { PimCmdEnum::DIV_SCALAR, "div_scalar" },
+    { PimCmdEnum::AND_SCALAR, "and_scalar" },
+    { PimCmdEnum::OR_SCALAR, "or_scalar" },
+    { PimCmdEnum::XOR_SCALAR, "xor_scalar" },
+    { PimCmdEnum::XNOR_SCALAR, "xnor_scalar" },
+    { PimCmdEnum::GT_SCALAR, "gt_scalar" },
+    { PimCmdEnum::LT_SCALAR, "lt_scalar" },
+    { PimCmdEnum::EQ_SCALAR, "eq_scalar" },
+    { PimCmdEnum::MIN_SCALAR, "min_scalar" },
+    { PimCmdEnum::MAX_SCALAR, "max_scalar" },
     { PimCmdEnum::REDSUM, "redsum" },
     { PimCmdEnum::REDSUM_RANGE, "redsum_range" },
     { PimCmdEnum::ROTATE_ELEM_R, "rotate_elem_r" },
@@ -406,7 +406,7 @@ pimCmdCopy::updateStats() const
       numElements = m_idxEnd - m_idxBegin;
     }
     unsigned bitsPerElement = objDest.getBitsPerElement();
-    pimParamsPerf::perfEnergy mPerfEnergy = pimSim::get()->getParamsPerf()->getPerfEnergyForBytesTransfer(m_cmdType, numElements * bitsPerElement / 8);
+    pimeval::perfEnergy mPerfEnergy = pimSim::get()->getPerfEnergyModel()->getPerfEnergyForBytesTransfer(m_cmdType, numElements * bitsPerElement / 8);
     pimSim::get()->getStatsMgr()->recordCopyMainToDevice(numElements * bitsPerElement, mPerfEnergy);
 
     #if defined(DEBUG)
@@ -421,7 +421,7 @@ pimCmdCopy::updateStats() const
       numElements = m_idxEnd - m_idxBegin;
     }
     unsigned bitsPerElement = objSrc.getBitsPerElement();
-    pimParamsPerf::perfEnergy mPerfEnergy = pimSim::get()->getParamsPerf()->getPerfEnergyForBytesTransfer(m_cmdType, numElements * bitsPerElement / 8);
+    pimeval::perfEnergy mPerfEnergy = pimSim::get()->getPerfEnergyModel()->getPerfEnergyForBytesTransfer(m_cmdType, numElements * bitsPerElement / 8);
     pimSim::get()->getStatsMgr()->recordCopyDeviceToMain(numElements * bitsPerElement, mPerfEnergy);
 
     #if defined(DEBUG)
@@ -436,7 +436,7 @@ pimCmdCopy::updateStats() const
       numElements = m_idxEnd - m_idxBegin;
     }
     unsigned bitsPerElement = objSrc.getBitsPerElement();
-    pimParamsPerf::perfEnergy mPerfEnergy = pimSim::get()->getParamsPerf()->getPerfEnergyForBytesTransfer(m_cmdType, numElements * bitsPerElement / 8);
+    pimeval::perfEnergy mPerfEnergy = pimSim::get()->getPerfEnergyModel()->getPerfEnergyForBytesTransfer(m_cmdType, numElements * bitsPerElement / 8);
     pimSim::get()->getStatsMgr()->recordCopyDeviceToDevice(numElements * bitsPerElement, mPerfEnergy);
 
     #if defined(DEBUG)
@@ -510,17 +510,17 @@ pimCmdFunc1::computeRegion(unsigned index)
     if (dataType == PIM_INT8 || dataType == PIM_INT16 || dataType == PIM_INT32 || dataType == PIM_INT64 || dataType == PIM_UINT8 || dataType == PIM_UINT16 || dataType == PIM_UINT32 || dataType == PIM_UINT64) {
       auto locSrc = srcRegion.locateIthElemInRegion(j);
       auto locDest = destRegion.locateIthElemInRegion(j);
-      auto operandBits = getBits(core, isVLayout, locSrc.first, locSrc.second, bitsPerElementSrc);
+      uint64_t operandBits = getBits(core, isVLayout, locSrc.first, locSrc.second, bitsPerElementSrc);
       bool isSigned = (dataType == PIM_INT8 || dataType == PIM_INT16 || dataType == PIM_INT32 || dataType == PIM_INT64);
       if (isSigned) {
-        int64_t signedOperand = getOperand(operandBits, dataType);
+        int64_t signedOperand = pimUtils::signExt(operandBits, dataType);
         int64_t result = 0;
-        if(!computeResult(signedOperand, m_cmdType, (int64_t)m_scalerValue, result, bitsPerElementSrc)) return false;
-        setBits(core, isVLayout, locDest.first, locDest.second, *reinterpret_cast<uint64_t*>(&result), bitsPerElementDest);
+        if(!computeResult(signedOperand, m_cmdType, (int64_t)m_scalarValue, result, bitsPerElementSrc)) return false;
+        setBits(core, isVLayout, locDest.first, locDest.second, pimUtils::castTypeToBits(result), bitsPerElementDest);
       } else {
-        uint64_t unsignedOperand = getOperand(operandBits, dataType);
+        uint64_t unsignedOperand = operandBits;
         uint64_t result = 0;
-        if(!computeResult(unsignedOperand, m_cmdType, m_scalerValue, result, bitsPerElementSrc)) return false;
+        if(!computeResult(unsignedOperand, m_cmdType, m_scalarValue, result, bitsPerElementSrc)) return false;
         setBits(core, isVLayout, locDest.first, locDest.second, result, bitsPerElementDest);
       }
     } else {
@@ -539,7 +539,7 @@ pimCmdFunc1::updateStats() const
   bool isVLayout = objSrc.isVLayout();
 
   
-  pimParamsPerf::perfEnergy mPerfEnergy = pimSim::get()->getParamsPerf()->getPerfEnergyForFunc1(m_cmdType, objSrc);
+  pimeval::perfEnergy mPerfEnergy = pimSim::get()->getPerfEnergyModel()->getPerfEnergyForFunc1(m_cmdType, objSrc);
   pimSim::get()->getStatsMgr()->recordCmd(getName(dataType, isVLayout), mPerfEnergy);
   return true;
 }
@@ -610,12 +610,12 @@ pimCmdFunc2::computeRegion(unsigned index)
     auto locDest = destRegion.locateIthElemInRegion(j);
 
     if (dataType == PIM_INT8 || dataType == PIM_INT16 || dataType == PIM_INT32 || dataType == PIM_INT64 || dataType == PIM_UINT8 || dataType == PIM_UINT16 || dataType == PIM_UINT32 || dataType == PIM_UINT64) {
-      auto operandBits1 = getBits(core, isVLayout, locSrc1.first, locSrc1.second, bitsPerElementSrc1);
-      auto operandBits2 = getBits(core, isVLayout, locSrc2.first, locSrc2.second, bitsPerElementSrc2);
+      uint64_t operandBits1 = getBits(core, isVLayout, locSrc1.first, locSrc1.second, bitsPerElementSrc1);
+      uint64_t operandBits2 = getBits(core, isVLayout, locSrc2.first, locSrc2.second, bitsPerElementSrc2);
       // The following if-else block is the perfect example of where a Template would have been much more cleaner and efficient and less error prone
       if (dataType == PIM_INT8 || dataType == PIM_INT16 || dataType == PIM_INT32 || dataType == PIM_INT64) {
-        int64_t operand1 = getOperand(operandBits1, dataType);
-        int64_t operand2 = getOperand(operandBits2, dataType);
+        int64_t operand1 = pimUtils::signExt(operandBits1, dataType);
+        int64_t operand2 = pimUtils::signExt(operandBits2, dataType);
         int64_t result = 0;
         switch (m_cmdType) {
         case PimCmdEnum::ADD: result = operand1 + operand2; break;
@@ -637,16 +637,15 @@ pimCmdFunc2::computeRegion(unsigned index)
         case PimCmdEnum::EQ: result = operand1 == operand2 ? 1 : 0; break;
         case PimCmdEnum::MIN: result = (operand1 < operand2) ? operand1 : operand2; break;
         case PimCmdEnum::MAX: result = (operand1 > operand2) ? operand1 : operand2; break;
-        case PimCmdEnum::SCALED_ADD: result = (operand1 * m_scalerValue) + operand2; break;
+        case PimCmdEnum::SCALED_ADD: result = (operand1 * m_scalarValue) + operand2; break;
         default:
           std::printf("PIM-Error: Unexpected cmd type %d\n", m_cmdType);
           assert(0);
         }
-        setBits(core, isVLayout, locDest.first, locDest.second,
-             *reinterpret_cast<uint64_t *>(&result), bitsPerElementdest);
+        setBits(core, isVLayout, locDest.first, locDest.second, pimUtils::castTypeToBits(result), bitsPerElementdest);
       } else {
-        uint64_t operand1 = getOperand(operandBits1, dataType);
-        uint64_t operand2 = getOperand(operandBits2, dataType);
+        uint64_t operand1 = operandBits1;
+        uint64_t operand2 = operandBits2;
         uint64_t result = 0;
         switch (m_cmdType) {
         case PimCmdEnum::ADD: result = operand1 + operand2; break;
@@ -668,7 +667,7 @@ pimCmdFunc2::computeRegion(unsigned index)
         case PimCmdEnum::EQ: result = operand1 == operand2 ? 1 : 0; break;
         case PimCmdEnum::MIN: result = (operand1 < operand2) ? operand1 : operand2; break;
         case PimCmdEnum::MAX: result = (operand1 > operand2) ? operand1 : operand2; break;
-        case PimCmdEnum::SCALED_ADD: result = (operand1 * m_scalerValue) + operand2; break;
+        case PimCmdEnum::SCALED_ADD: result = (operand1 * m_scalarValue) + operand2; break;
         default:
           std::printf("PIM-Error: Unexpected cmd type %d\n", m_cmdType);
           assert(0);
@@ -676,10 +675,10 @@ pimCmdFunc2::computeRegion(unsigned index)
         setBits(core, isVLayout, locDest.first, locDest.second, result, bitsPerElementdest);
       }
     } else if (dataType == PIM_FP32) {
-      auto operandBits1 = getBits(core, isVLayout, locSrc1.first, locSrc1.second, bitsPerElementSrc1);
-      auto operandBits2 = getBits(core, isVLayout, locSrc2.first, locSrc2.second, bitsPerElementSrc2);
-      float operand1 = *reinterpret_cast<float *>(&operandBits1);
-      float operand2 = *reinterpret_cast<float *>(&operandBits2);
+      uint64_t operandBits1 = getBits(core, isVLayout, locSrc1.first, locSrc1.second, bitsPerElementSrc1);
+      uint64_t operandBits2 = getBits(core, isVLayout, locSrc2.first, locSrc2.second, bitsPerElementSrc2);
+      float operand1 = pimUtils::castBitsToType<float>(operandBits1);
+      float operand2 = pimUtils::castBitsToType<float>(operandBits2);
       float result = 0;
       switch (m_cmdType) {
       case PimCmdEnum::ADD: result = operand1 + operand2; break;
@@ -696,8 +695,7 @@ pimCmdFunc2::computeRegion(unsigned index)
         std::printf("PIM-Error: Unsupported FP32 cmd type %d\n", static_cast<int>(m_cmdType));
         assert(0);
       }
-      setBits(core, isVLayout, locDest.first, locDest.second,
-             *reinterpret_cast<uint64_t *>(&result), bitsPerElementdest);
+      setBits(core, isVLayout, locDest.first, locDest.second, pimUtils::castTypeToBits(result), bitsPerElementdest);
     } else {
       assert(0); // todo: data type
     }
@@ -713,7 +711,7 @@ pimCmdFunc2::updateStats() const
   PimDataType dataType = objSrc1.getDataType();
   bool isVLayout = objSrc1.isVLayout();
 
-  pimParamsPerf::perfEnergy mPerfEnergy = pimSim::get()->getParamsPerf()->getPerfEnergyForFunc2(m_cmdType, objSrc1);
+  pimeval::perfEnergy mPerfEnergy = pimSim::get()->getPerfEnergyModel()->getPerfEnergyForFunc2(m_cmdType, objSrc1);
   pimSim::get()->getStatsMgr()->recordCmd(getName(dataType, isVLayout), mPerfEnergy);
   return true;
 }
@@ -776,8 +774,8 @@ pimCmdRedSum<T>::computeRegion(unsigned index)
   for (unsigned j = 0; j < numElementsInRegion && currIdx < m_idxEnd; ++j) {
     if (currIdx >= m_idxBegin) {
       auto locSrc = srcRegion.locateIthElemInRegion(j);
-      auto operandBits = getBits(core, isVLayout, locSrc.first, locSrc.second, bitsPerElement);
-      T operand = getOperand(operandBits, objSrc.getDataType());
+      uint64_t operandBits = getBits(core, isVLayout, locSrc.first, locSrc.second, bitsPerElement);
+      T operand = pimUtils::signExt(operandBits, objSrc.getDataType());
       m_regionSum[index] += operand;
     }
     currIdx += 1;
@@ -796,7 +794,6 @@ pimCmdRedSum<T>::updateStats() const
   unsigned numPass = 0;
   if (m_cmdType == PimCmdEnum::REDSUM_RANGE) {
     // determine numPass for ranged redSum
-    unsigned bitsPerElement = objSrc.getBitsPerElement();
     std::unordered_map<PimCoreId, unsigned> activeRegionPerCore;
     uint64_t index = 0;
     for (const auto& region : objSrc.getRegions()) {
@@ -817,7 +814,7 @@ pimCmdRedSum<T>::updateStats() const
     numPass = objSrc.getMaxNumRegionsPerCore();
   }
 
-  pimParamsPerf::perfEnergy mPerfEnergy = pimSim::get()->getParamsPerf()->getPerfEnergyForRedSum(m_cmdType, objSrc, numPass);
+  pimeval::perfEnergy mPerfEnergy = pimSim::get()->getPerfEnergyModel()->getPerfEnergyForRedSum(m_cmdType, objSrc, numPass);
   pimSim::get()->getStatsMgr()->recordCmd(getName(dataType, isVLayout), mPerfEnergy);
   return true;
 }
@@ -930,11 +927,11 @@ pimCmdReduction<T>::updateStats() const
   return true;
 }
 //! @brief  PIM CMD: broadcast a value to all elements
-template <typename T> bool
-pimCmdBroadcast<T>::execute()
+bool
+pimCmdBroadcast::execute()
 {
   #if defined(DEBUG)
-  std::printf("PIM-Info: %s (obj id %d value %u)\n", getName().c_str(), m_dest, m_val);
+  std::printf("PIM-Info: %s (obj id %d value %llu)\n", getName().c_str(), m_dest, m_signExtBits);
   #endif
 
   if (!sanityCheck()) {
@@ -950,8 +947,8 @@ pimCmdBroadcast<T>::execute()
 }
 
 //! @brief  PIM CMD: broadcast a value to all elements - sanity check
-template <typename T> bool
-pimCmdBroadcast<T>::sanityCheck() const
+bool
+pimCmdBroadcast::sanityCheck() const
 {
   pimResMgr* resMgr = m_device->getResMgr();
   if (!isValidObjId(resMgr, m_dest)) {
@@ -961,8 +958,8 @@ pimCmdBroadcast<T>::sanityCheck() const
 }
 
 //! @brief  PIM CMD: broadcast a value to all elements - compute region
-template <typename T> bool
-pimCmdBroadcast<T>::computeRegion(unsigned index)
+bool
+pimCmdBroadcast::computeRegion(unsigned index)
 {
   const pimObjInfo& objDest = m_device->getResMgr()->getObjInfo(m_dest);
   bool isVLayout = objDest.isVLayout();
@@ -975,23 +972,22 @@ pimCmdBroadcast<T>::computeRegion(unsigned index)
 
   unsigned numElementsInRegion = destRegion.getNumElemInRegion();
 
-  uint64_t val = *reinterpret_cast<uint64_t *>(&m_val);
   for (unsigned j = 0; j < numElementsInRegion; ++j) {
     auto locDest = destRegion.locateIthElemInRegion(j);
-    setBits(core, isVLayout, locDest.first, locDest.second, val, bitsPerElement);
+    setBits(core, isVLayout, locDest.first, locDest.second, m_signExtBits, bitsPerElement);
   }
   return true;
 }
 
 //! @brief  PIM CMD: broadcast a value to all elements - update stats
-template <typename T> bool
-pimCmdBroadcast<T>::updateStats() const
+bool
+pimCmdBroadcast::updateStats() const
 {
   const pimObjInfo& objDest = m_device->getResMgr()->getObjInfo(m_dest);
   PimDataType dataType = objDest.getDataType();
   bool isVLayout = objDest.isVLayout();
 
-  pimParamsPerf::perfEnergy mPerfEnergy = pimSim::get()->getParamsPerf()->getPerfEnergyForBroadcast(m_cmdType, objDest);
+  pimeval::perfEnergy mPerfEnergy = pimSim::get()->getPerfEnergyModel()->getPerfEnergyForBroadcast(m_cmdType, objDest);
   pimSim::get()->getStatsMgr()->recordCmd(getName(dataType, isVLayout), mPerfEnergy);
   return true;
 }
@@ -1089,17 +1085,17 @@ pimCmdRotate::computeRegion(unsigned index)
   // perform rotation
   if (m_cmdType == PimCmdEnum::ROTATE_ELEM_R || m_cmdType == PimCmdEnum::SHIFT_ELEM_R) {
     m_regionBoundary[index] = regionVector[numElementsInRegion - 1];
-    unsigned carry = 0;
+    uint64_t carry = 0;
     for (unsigned j = 0; j < numElementsInRegion; ++j) {
-      int temp = regionVector[j];
+      uint64_t temp = regionVector[j];
       regionVector[j] = carry;
       carry = temp;
     }
   } else if (m_cmdType == PimCmdEnum::ROTATE_ELEM_L || m_cmdType == PimCmdEnum::SHIFT_ELEM_L) {
     m_regionBoundary[index] = regionVector[0];
-    unsigned carry = 0;
+    uint64_t carry = 0;
     for (int j = numElementsInRegion - 1; j >= 0; --j) {
-      unsigned temp = regionVector[j];
+      uint64_t temp = regionVector[j];
       regionVector[j] = carry;
       carry = temp;
     }
@@ -1123,7 +1119,7 @@ pimCmdRotate::updateStats() const
   PimDataType dataType = objSrc.getDataType();
   bool isVLayout = objSrc.isVLayout();
 
-  pimParamsPerf::perfEnergy mPerfEnergy = pimSim::get()->getParamsPerf()->getPerfEnergyForRotate(m_cmdType, objSrc);
+  pimeval::perfEnergy mPerfEnergy = pimSim::get()->getPerfEnergyModel()->getPerfEnergyForRotate(m_cmdType, objSrc);
   pimSim::get()->getStatsMgr()->recordCmd(getName(dataType, isVLayout), mPerfEnergy);
   return true;
 }
@@ -1150,7 +1146,7 @@ pimCmdReadRowToSa::execute()
   }
 
   // Update stats
-  pimParamsPerf::perfEnergy prfEnrgy;
+  pimeval::perfEnergy prfEnrgy;
   pimSim::get()->getStatsMgr()->recordCmd(getName(), prfEnrgy);
   return true;
 }
@@ -1176,7 +1172,7 @@ pimCmdWriteSaToRow::execute()
   }
 
   // Update stats
-  pimParamsPerf::perfEnergy prfEnrgy;
+  pimeval::perfEnergy prfEnrgy;
   pimSim::get()->getStatsMgr()->recordCmd(getName(), prfEnrgy);
   return true;
 }
@@ -1280,7 +1276,7 @@ pimCmdRRegOp::execute()
   }
 
   // Update stats
-  pimParamsPerf::perfEnergy prfEnrgy;
+  pimeval::perfEnergy prfEnrgy;
   pimSim::get()->getStatsMgr()->recordCmd(getName(), prfEnrgy);
   return true;
 }
@@ -1333,7 +1329,7 @@ pimCmdRRegRotate::execute()
   }
 
   // Update stats
-  pimParamsPerf::perfEnergy prfEnrgy;
+  pimeval::perfEnergy prfEnrgy;
   pimSim::get()->getStatsMgr()->recordCmd(getName(), prfEnrgy);
   return true;
 }
@@ -1421,7 +1417,7 @@ pimCmdAnalogAAP::execute()
   // Update stats
   std::string cmdName = getName();
   cmdName += "@" + std::to_string(m_srcRows.size()) + "," + std::to_string(m_destRows.size());
-  pimParamsPerf::perfEnergy prfEnrgy;
+  pimeval::perfEnergy prfEnrgy;
   pimSim::get()->getStatsMgr()->recordCmd(cmdName, prfEnrgy);
   return true;
 }
@@ -1445,7 +1441,5 @@ pimCmdAnalogAAP::printDebugInfo() const
 }
 
 // Explicit template instantiation
-template class pimCmdBroadcast<uint64_t>;
-template class pimCmdBroadcast<int64_t>;
 template class pimCmdRedSum<uint64_t>;
 template class pimCmdRedSum<int64_t>;

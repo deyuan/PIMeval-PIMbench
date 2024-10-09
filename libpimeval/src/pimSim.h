@@ -10,7 +10,7 @@
 #include "libpimeval.h"
 #include "pimDevice.h"
 #include "pimParamsDram.h"
-#include "pimPerfEnergyModels.h"
+#include "pimPerfEnergyBase.h"
 #include "pimStats.h"
 #include <vector>
 #include <cstdarg>
@@ -44,12 +44,12 @@ public:
 
   void showStats() const;
   void resetStats() const;
-  pimStatsMgr* getStatsMgr() { return m_statsMgr; }
-  pimParamsDram* getParamsDram() { return m_paramsDram; }
-  pimParamsPerf* getParamsPerf() { return m_paramsPerf; }
+  pimStatsMgr* getStatsMgr() { return m_statsMgr.get(); }
+  const pimParamsDram& getParamsDram() const { assert(m_paramsDram); return *m_paramsDram; }
+  pimPerfEnergyBase* getPerfEnergyModel();
 
   void initThreadPool(unsigned maxNumThreads);
-  pimUtils::threadPool* getThreadPool() { return m_threadPool; }
+  pimUtils::threadPool* getThreadPool() { return m_threadPool.get(); }
   unsigned getNumThreads() const { return m_numThreads; }
 
   // Resource allocation and deletion
@@ -81,20 +81,20 @@ public:
   bool pimEQ(PimObjId src1, PimObjId src2, PimObjId dest);
   bool pimMin(PimObjId src1, PimObjId src2, PimObjId dest);
   bool pimMax(PimObjId src1, PimObjId src2, PimObjId dest);
-  bool pimAdd(PimObjId src, PimObjId dest, uint64_t scalerValue);
-  bool pimSub(PimObjId src, PimObjId dest, uint64_t scalerValue);
-  bool pimMul(PimObjId src, PimObjId dest, uint64_t scalerValue);
-  bool pimDiv(PimObjId src, PimObjId dest, uint64_t scalerValue);
-  bool pimAnd(PimObjId src, PimObjId dest, uint64_t scalerValue);
-  bool pimOr(PimObjId src, PimObjId dest, uint64_t scalerValue);
-  bool pimXor(PimObjId src, PimObjId dest, uint64_t scalerValue);
-  bool pimXnor(PimObjId src, PimObjId dest, uint64_t scalerValue);
-  bool pimGT(PimObjId src, PimObjId dest, uint64_t scalerValue);
-  bool pimLT(PimObjId src, PimObjId dest, uint64_t scalerValue);
-  bool pimEQ(PimObjId src, PimObjId dest, uint64_t scalerValue);
-  bool pimMin(PimObjId src, PimObjId dest, uint64_t scalerValue);
-  bool pimMax(PimObjId src, PimObjId dest, uint64_t scalerValue);
-  bool pimScaledAdd(PimObjId src1, PimObjId src2, PimObjId dest, uint64_t scalerValue);
+  bool pimAdd(PimObjId src, PimObjId dest, uint64_t scalarValue);
+  bool pimSub(PimObjId src, PimObjId dest, uint64_t scalarValue);
+  bool pimMul(PimObjId src, PimObjId dest, uint64_t scalarValue);
+  bool pimDiv(PimObjId src, PimObjId dest, uint64_t scalarValue);
+  bool pimAnd(PimObjId src, PimObjId dest, uint64_t scalarValue);
+  bool pimOr(PimObjId src, PimObjId dest, uint64_t scalarValue);
+  bool pimXor(PimObjId src, PimObjId dest, uint64_t scalarValue);
+  bool pimXnor(PimObjId src, PimObjId dest, uint64_t scalarValue);
+  bool pimGT(PimObjId src, PimObjId dest, uint64_t scalarValue);
+  bool pimLT(PimObjId src, PimObjId dest, uint64_t scalarValue);
+  bool pimEQ(PimObjId src, PimObjId dest, uint64_t scalarValue);
+  bool pimMin(PimObjId src, PimObjId dest, uint64_t scalarValue);
+  bool pimMax(PimObjId src, PimObjId dest, uint64_t scalarValue);
+  bool pimScaledAdd(PimObjId src1, PimObjId src2, PimObjId dest, uint64_t scalarValue);
   bool pimPopCount(PimObjId src, PimObjId dest);
   template <typename T> bool pimRedSum(PimObjId src, T* sum);
   template <typename T> bool pimRedSumRanged(PimObjId src, uint64_t idxBegin, uint64_t idxEnd, T* sum);
@@ -144,11 +144,10 @@ private:
   static pimSim* s_instance;
 
   // support one device for now
-  pimDevice* m_device = nullptr;
-  pimParamsDram* m_paramsDram = nullptr;
-  pimParamsPerf* m_paramsPerf = nullptr;
-  pimStatsMgr* m_statsMgr = nullptr;
-  pimUtils::threadPool* m_threadPool = nullptr;
+  std::unique_ptr<pimDevice> m_device;
+  std::unique_ptr<pimParamsDram> m_paramsDram;
+  std::unique_ptr<pimStatsMgr> m_statsMgr;
+  std::unique_ptr<pimUtils::threadPool> m_threadPool;
   unsigned m_numThreads = 0;
   std::string m_memConfigFileName;
   std::string m_configFilesPath;
